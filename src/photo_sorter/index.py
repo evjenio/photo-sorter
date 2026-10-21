@@ -6,8 +6,10 @@ from pathlib import Path, PurePosixPath
 from .hashing import hash_files
 from .media import STATE_DIR, kind_of, walk_files
 from .metadata import MetadataReader, resolve_date
-from .progress import Log
+from .progress import Log, track
 from .similar import PHASH_EXTS, phash_files
+
+INDEX_BATCH = 1000
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS files (
@@ -19,6 +21,10 @@ CREATE TABLE IF NOT EXISTS files (
     phash TEXT
 )
 """
+
+
+def _silent(_: str) -> None:
+    pass
 
 
 class DestIndex:
@@ -47,21 +53,29 @@ class DestIndex:
             rel: (path, st) for rel, (path, st) in present.items()
             if known.get(rel) != (st.st_size, st.st_mtime_ns)
         }
+        self.db.commit()
         if stale:
             log(f"Indexing {len(stale)} files already in destination")
-            paths = [path for path, _ in stale.values()]
-            hashes = hash_files(paths, workers, log)
-            exif = read_metadata(paths, log)
-            for rel, (path, st) in stale.items():
-                if not hashes[path]:
-                    continue
-                taken_at, _ = resolve_date(exif.get(str(path), {}), path.name)
-                self.db.execute(
-                    "INSERT OR REPLACE INTO files (rel, size, mtime_ns, hash, taken_at, phash) VALUES (?, ?, ?, ?, ?, NULL)",
-                    (rel, st.st_size, st.st_mtime_ns, hashes[path], taken_at.isoformat() if taken_at else None),
-                )
+            items = list(stale.items())
+            batches = [items[i:i + INDEX_BATCH] for i in range(0, len(items), INDEX_BATCH)]
+            for batch in track(batches, len(items), "indexing destination", log, weight=len):
+                self._index_batch(batch, read_metadata, workers)
         if with_phash:
             self._fill_phashes(workers, log)
+
+    def _index_batch(self, batch: list[tuple[str, tuple[Path, os.stat_result]]], read_metadata: MetadataReader,
+                     workers: int) -> None:
+        paths = [path for _, (path, _) in batch]
+        hashes = hash_files(paths, workers, _silent)
+        exif = read_metadata(paths, _silent)
+        for rel, (path, st) in batch:
+            if not hashes[path]:
+                continue
+            taken_at, _ = resolve_date(exif.get(str(path), {}), path.name)
+            self.db.execute(
+                "INSERT OR REPLACE INTO files (rel, size, mtime_ns, hash, taken_at, phash) VALUES (?, ?, ?, ?, ?, NULL)",
+                (rel, st.st_size, st.st_mtime_ns, hashes[path], taken_at.isoformat() if taken_at else None),
+            )
         self.db.commit()
 
     def _fill_phashes(self, workers: int, log: Log) -> None:
@@ -71,9 +85,12 @@ class DestIndex:
         ]
         if not missing:
             return
-        paths = {self.dest / rel: rel for rel in missing}
-        for path, value in phash_files(list(paths), workers, log).items():
-            self.db.execute("UPDATE files SET phash = ? WHERE rel = ?", (f"{value:016x}" if value is not None else "", paths[path]))
+        batches = [missing[i:i + INDEX_BATCH] for i in range(0, len(missing), INDEX_BATCH)]
+        for batch in track(batches, len(missing), "comparing images in destination", log, weight=len):
+            paths = {self.dest / rel: rel for rel in batch}
+            for path, value in phash_files(list(paths), workers, _silent).items():
+                self.db.execute("UPDATE files SET phash = ? WHERE rel = ?", (f"{value:016x}" if value is not None else "", paths[path]))
+            self.db.commit()
 
     def add(self, rel: str, path: Path, file_hash: str, taken_at: str | None) -> None:
         st = path.stat()
