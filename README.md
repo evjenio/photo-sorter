@@ -52,7 +52,7 @@ docker run --rm -e TZ=Asia/Almaty --user "$(id -u):$(id -g)" \
 
 docker run --rm -e TZ=Asia/Almaty --user "$(id -u):$(id -g)" \
   -v /path/to/mess:/source:ro -v /path/to/library:/dest \
-  photo-sorter apply /source /dest /dest/.photo-sorter/plans/<время>/plan.csv
+  photo-sorter apply /source /dest --latest      # или путь к конкретному plan.csv
 ```
 
 `TZ` нужен для видео: QuickTime хранит время в UTC, и без часового пояса оно сдвинется.

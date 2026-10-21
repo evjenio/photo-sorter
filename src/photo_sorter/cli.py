@@ -8,9 +8,8 @@ from pathlib import Path
 
 from .applier import apply_plan
 from .index import DestIndex
-from .media import STATE_DIR
 from .metadata import read_exif
-from .planner import PlanOptions, build_plan, read_plan, write_plan
+from .planner import PlanOptions, build_plan, latest_plan, plans_dir, read_plan, write_plan
 from .progress import log_stderr
 from .similar import MAX_DISTANCE
 
@@ -41,7 +40,7 @@ def _scan(args: argparse.Namespace) -> int:
     finally:
         index.close()
 
-    out_dir = args.dest / STATE_DIR / "plans" / datetime.now().strftime("%Y%m%d-%H%M%S")
+    out_dir = plans_dir(args.dest) / datetime.now().strftime("%Y%m%d-%H%M%S")
     plan_path = write_plan(plan, out_dir)
 
     copies = [r for r in plan.rows if r.action == "copy"]
@@ -59,13 +58,15 @@ def _scan(args: argparse.Namespace) -> int:
     if len(folders) > 20:
         print(f"  ... and {len(folders) - 20} more")
     print(f"\nReview the plan: {plan_path}")
-    print(f"Then run: photo-sorter apply {args.source} {args.dest} {plan_path}")
+    print(f"Then run: photo-sorter apply {args.source} {args.dest} --latest")
     return 0
 
 
 def _apply(args: argparse.Namespace) -> int:
     _check_roots(args.source, args.dest)
-    rows = read_plan(args.plan)
+    plan_path = latest_plan(args.dest) if args.latest else args.plan
+    log_stderr(f"Applying plan {plan_path}")
+    rows = read_plan(plan_path)
     index = DestIndex(args.dest)
     try:
         result = apply_plan(args.source, args.dest, rows, index, log_stderr, dry_run=args.dry_run)
@@ -94,7 +95,9 @@ def build_parser() -> argparse.ArgumentParser:
     apply = commands.add_parser("apply", help="copy files according to a reviewed plan")
     apply.add_argument("source", type=Path)
     apply.add_argument("dest", type=Path)
-    apply.add_argument("plan", type=Path)
+    plan = apply.add_mutually_exclusive_group(required=True)
+    plan.add_argument("plan", type=Path, nargs="?", help="plan.csv written by scan")
+    plan.add_argument("--latest", action="store_true", help="apply the plan from the most recent scan")
     apply.add_argument("--dry-run", action="store_true")
     apply.set_defaults(handler=_apply)
     return parser

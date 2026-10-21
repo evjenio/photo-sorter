@@ -8,7 +8,7 @@ from .events import SCREENSHOTS_DIR, UNSORTED_DIR, ExistingEvents, cluster_event
 from .grouping import attach_companions, companion_suffix
 from .hashing import hash_files
 from .index import DestIndex
-from .media import MediaFile, kind_of, normalized_ext, walk_files
+from .media import STATE_DIR, MediaFile, kind_of, normalized_ext, walk_files
 from .metadata import MetadataReader, apply_metadata, read_exif
 from .progress import Log, log_stderr
 from .similar import PHASH_EXTS, group_similar, phash_files
@@ -244,6 +244,18 @@ def _write_csv(path: Path, rows: list, row_type: type) -> None:
         writer = csv.DictWriter(f, fieldnames=[f.name for f in fields(row_type)])
         writer.writeheader()
         writer.writerows(asdict(row) for row in rows)
+
+
+def plans_dir(dest: Path) -> Path:
+    return dest / STATE_DIR / "plans"
+
+
+def latest_plan(dest: Path) -> Path:
+    root = plans_dir(dest)
+    runs = sorted(run for run in root.iterdir() if (run / "plan.csv").is_file()) if root.is_dir() else []
+    if not runs:
+        raise SystemExit(f"no plans found in {root}; run scan first")
+    return runs[-1] / "plan.csv"
 
 
 def write_plan(plan: Plan, out_dir: Path) -> Path:
