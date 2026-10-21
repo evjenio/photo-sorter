@@ -15,12 +15,16 @@ def _dms(value):
     return degrees, minutes, seconds
 
 
-def test_reads_date_and_reverse_geocodes_city(tmp_path):
-    path = tmp_path / "photo.jpg"
+def _photo(path, lat, lon):
     exif = Image.Exif()
     exif.get_ifd(0x8769)[0x9003] = "2024:07:12 10:00:00"
-    exif.get_ifd(0x8825).update({1: "N", 2: _dms(41.7151), 3: "E", 4: _dms(44.8271)})
+    exif.get_ifd(0x8825).update({1: "N", 2: _dms(lat), 3: "E", 4: _dms(lon)})
     Image.new("RGB", (32, 32)).save(path, exif=exif)
+    return path
+
+
+def test_reads_date_and_reverse_geocodes_city(tmp_path):
+    path = _photo(tmp_path / "photo.jpg", 41.7151, 44.8271)
 
     tags = read_exif([path], lambda _: None)[str(path)]
 
@@ -41,3 +45,8 @@ def test_reports_progress_per_batch(tmp_path):
     read_exif(paths, messages.append, batch_size=2)
 
     assert messages[-1] == "  reading metadata: 3/3"
+
+
+def test_city_districts_resolve_to_the_city(tmp_path):
+    path = _photo(tmp_path / "taganskiy.jpg", 55.7414, 37.6594)
+    assert read_exif([path], lambda _: None)[str(path)]["GeolocationCity"] == "Moscow"

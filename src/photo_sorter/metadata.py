@@ -32,12 +32,13 @@ FILENAME_DATE = re.compile(
     r"(?:[-_ T.]?([01]\d|2[0-3])[-_.:h]?([0-5]\d)[-_.:m]?([0-5]\d)|(?!\d))"
 )
 MIN_YEAR = 1980
+TRANSLITERATION_MARKS = str.maketrans("", "", "’‘ʼ")
 
 
 def read_exif(paths: list[Path], log: Log, batch_size: int = 500) -> dict[str, dict[str, Any]]:
-    """Read tags with exiftool; QuickTime dates are converted from UTC to the container's TZ."""
+    """Read tags with exiftool; city districts resolve to their city, QuickTime dates to the container's TZ."""
     result: dict[str, dict[str, Any]] = {}
-    args = ["exiftool", "-j", "-n", "-q", "-q", "-api", "geolocation", "-api", "QuickTimeUTC",
+    args = ["exiftool", "-j", "-n", "-q", "-q", "-api", "geolocation", "-api", "GeolocFeature=-PPLX", "-api", "QuickTimeUTC",
             "-charset", "filename=utf8", *(f"-{tag}" for tag in TAGS), "-@", "-"]
     batches = [paths[start:start + batch_size] for start in range(0, len(paths), batch_size)]
     for batch in track(batches, len(paths), "reading metadata", log, weight=len):
@@ -90,6 +91,11 @@ def _text(value: Any) -> str | None:
     return text or None
 
 
+def _place(value: Any) -> str | None:
+    text = _text(value)
+    return text.translate(TRANSLITERATION_MARKS) if text else None
+
+
 def _int(value: Any) -> int | None:
     return int(value) if isinstance(value, (int, float)) else None
 
@@ -99,8 +105,8 @@ def apply_metadata(media: MediaFile, exif: dict[str, Any]) -> None:
     lat, lon = exif.get("GPSLatitude"), exif.get("GPSLongitude")
     if isinstance(lat, (int, float)) and isinstance(lon, (int, float)) and (lat, lon) != (0, 0):
         media.lat, media.lon = float(lat), float(lon)
-        media.city = _text(exif.get("GeolocationCity"))
-        media.country = _text(exif.get("GeolocationCountry"))
+        media.city = _place(exif.get("GeolocationCity"))
+        media.country = _place(exif.get("GeolocationCountry"))
     media.content_id = _text(exif.get("ContentIdentifier"))
     media.width = _int(exif.get("ImageWidth"))
     media.height = _int(exif.get("ImageHeight"))

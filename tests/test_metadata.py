@@ -2,7 +2,8 @@ from datetime import datetime
 
 import pytest
 
-from photo_sorter.metadata import parse_exif_date, parse_filename_date, resolve_date
+from conftest import media
+from photo_sorter.metadata import apply_metadata, parse_exif_date, parse_filename_date, resolve_date
 
 
 @pytest.mark.parametrize("name, expected", [
@@ -39,3 +40,10 @@ def test_resolve_date_prefers_exif_then_filename():
     assert resolve_date(exif, "IMG_20200101_000000.jpg") == (datetime(2024, 7, 12, 9), "DateTimeOriginal")
     assert resolve_date({}, "IMG_20200101_000000.jpg") == (datetime(2020, 1, 1), "filename")
     assert resolve_date({}, "IMG_0001.jpg") == (None, "")
+
+
+def test_place_names_drop_apostrophes():
+    file = media("IMG_0001.JPG")
+    apply_metadata(file, {"GPSLatitude": 42.6569, "GPSLongitude": 44.6433,
+                          "GeolocationCity": "St’epants’minda", "GeolocationCountry": "Cote d'Ivoire"})
+    assert (file.city, file.country) == ("Stepantsminda", "Cote d'Ivoire")
