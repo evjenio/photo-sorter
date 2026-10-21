@@ -18,7 +18,7 @@ from .similar import PHASH_EXTS, group_similar, phash_files
 class PlanOptions:
     gap: timedelta = timedelta(hours=24)
     max_span: timedelta = timedelta(days=14)
-    similar: bool = True
+    similar: bool = False
     similar_distance: int = 6
     workers: int = 4
 

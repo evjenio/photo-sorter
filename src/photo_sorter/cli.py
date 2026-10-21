@@ -30,7 +30,7 @@ def _scan(args: argparse.Namespace) -> int:
     options = PlanOptions(
         gap=timedelta(hours=args.gap_hours),
         max_span=timedelta(days=args.max_event_days),
-        similar=not args.no_similar,
+        similar=args.similar,
         similar_distance=args.similar_distance,
         workers=args.workers,
     )
@@ -50,7 +50,10 @@ def _scan(args: argparse.Namespace) -> int:
     print(f"\nTo copy:     {actions['copy']} files into {len(folders)} folders")
     print(f"Duplicates:  {actions['duplicate']}")
     print(f"Ignored:     {actions['ignore']}")
-    print(f"Similar:     {len({r.group for r in plan.similar})} groups (see similar.csv)")
+    if options.similar:
+        print(f"Similar:     {len({r.group for r in plan.similar})} groups (see similar.csv)")
+    else:
+        print("Similar:     skipped (enable with --similar)")
     for folder, count in sorted(folders.items())[:20]:
         print(f"  {folder}  ({count})")
     if len(folders) > 20:
@@ -73,7 +76,7 @@ def _apply(args: argparse.Namespace) -> int:
     return 1 if result.failed else 0
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="photo-sorter", description="Copy a messy photo library into an ordered one.")
     commands = parser.add_subparsers(dest="command", required=True)
 
@@ -84,7 +87,7 @@ def main(argv: list[str] | None = None) -> int:
     scan.add_argument("--max-event-days", type=float, default=14, help="longest event (default: 14)")
     scan.add_argument("--similar-distance", type=int, default=6, choices=range(MAX_DISTANCE + 1),
                       metavar=f"0-{MAX_DISTANCE}", help="phash bit distance for similar images (default: 6)")
-    scan.add_argument("--no-similar", action="store_true", help="skip the visually similar images report")
+    scan.add_argument("--similar", action="store_true", help="report visually similar images in similar.csv (slow)")
     scan.add_argument("--workers", type=int, default=os.cpu_count() or 4)
     scan.set_defaults(handler=_scan)
 
@@ -94,8 +97,11 @@ def main(argv: list[str] | None = None) -> int:
     apply.add_argument("plan", type=Path)
     apply.add_argument("--dry-run", action="store_true")
     apply.set_defaults(handler=_apply)
+    return parser
 
-    args = parser.parse_args(argv)
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
     return args.handler(args)
 
 
