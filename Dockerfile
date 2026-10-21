@@ -1,4 +1,4 @@
-FROM python:3.13-slim-trixie AS base
+FROM docker.io/library/python:3.13-slim-trixie AS base
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libimage-exiftool-perl tzdata \
     && rm -rf /var/lib/apt/lists/*
