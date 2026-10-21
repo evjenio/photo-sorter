@@ -51,7 +51,7 @@ class DestIndex:
             log(f"Indexing {len(stale)} files already in destination")
             paths = [path for path, _ in stale.values()]
             hashes = hash_files(paths, workers, log)
-            exif = read_metadata(paths)
+            exif = read_metadata(paths, log)
             for rel, (path, st) in stale.items():
                 if not hashes[path]:
                     continue

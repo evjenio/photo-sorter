@@ -6,9 +6,10 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
 from .media import MediaFile
+from .progress import Log, track
 from .screenshots import screenshot_reason
 
-MetadataReader = Callable[[list[Path]], dict[str, dict[str, Any]]]
+MetadataReader = Callable[[list[Path], Log], dict[str, dict[str, Any]]]
 
 DATE_TAGS = ("DateTimeOriginal", "CreationDate", "CreateDate", "MediaCreateDate")
 TAGS = (
@@ -33,13 +34,13 @@ FILENAME_DATE = re.compile(
 MIN_YEAR = 1980
 
 
-def read_exif(paths: list[Path], batch_size: int = 500) -> dict[str, dict[str, Any]]:
+def read_exif(paths: list[Path], log: Log, batch_size: int = 500) -> dict[str, dict[str, Any]]:
     """Read tags with exiftool; QuickTime dates are converted from UTC to the container's TZ."""
     result: dict[str, dict[str, Any]] = {}
     args = ["exiftool", "-j", "-n", "-q", "-q", "-api", "geolocation", "-api", "QuickTimeUTC",
             "-charset", "filename=utf8", *(f"-{tag}" for tag in TAGS), "-@", "-"]
-    for start in range(0, len(paths), batch_size):
-        batch = paths[start:start + batch_size]
+    batches = [paths[start:start + batch_size] for start in range(0, len(paths), batch_size)]
+    for batch in track(batches, len(paths), "reading metadata", log, weight=len):
         proc = subprocess.run(args, input="\n".join(map(str, batch)), capture_output=True, text=True)
         if proc.stdout.strip():
             for item in json.loads(proc.stdout):

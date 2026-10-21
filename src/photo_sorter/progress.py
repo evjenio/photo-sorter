@@ -10,11 +10,16 @@ def log_stderr(message: str) -> None:
     print(message, file=sys.stderr, flush=True)
 
 
-def track(items: Iterable[T], total: int, label: str, log: Log, every: float = 5.0) -> Iterator[T]:
+def track(items: Iterable[T], total: int, label: str, log: Log, every: float = 5.0,
+          weight: Callable[[T], int] | None = None) -> Iterator[T]:
+    done = reported = 0
     last = time.monotonic()
-    for done, item in enumerate(items, 1):
+    for item in items:
+        yield item
+        done += weight(item) if weight else 1
         now = time.monotonic()
         if now - last >= every:
             log(f"  {label}: {done}/{total}")
-            last = now
-        yield item
+            last, reported = now, done
+    if total and reported != done:
+        log(f"  {label}: {done}/{total}")

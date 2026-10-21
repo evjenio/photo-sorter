@@ -192,7 +192,7 @@ def build_plan(source: Path, dest: Path, index: DestIndex, options: PlanOptions,
     log(f"Found {len(media)} media files and {len(plan.rows)} other files in source")
 
     log("Reading metadata")
-    exif = read_metadata([m.path for m in media if m.kind != "sidecar"])
+    exif = read_metadata([m.path for m in media if m.kind != "sidecar"], log)
     for file in media:
         if file.kind != "sidecar":
             apply_metadata(file, exif.get(str(file.path), {}))

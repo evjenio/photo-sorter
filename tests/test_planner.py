@@ -46,7 +46,7 @@ def library(tmp_path):
 
 
 def fake_reader(source: Path):
-    def read(paths):
+    def read(paths, log):
         return {str(p): EXIF.get(p.relative_to(source).as_posix(), {}) for p in paths if p.is_relative_to(source)}
     return read
 
