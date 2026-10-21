@@ -37,22 +37,22 @@ def sanitize(name: str) -> str:
 
 
 def event_title(items: list[MediaFile]) -> str:
-    date = f"{items[0].taken_at:%Y-%m-%d}"
+    day = f"{items[0].taken_at:%d}"
     cities = Counter(i.city for i in items if i.city)
     countries = Counter(i.country for i in items if i.country)
     country = countries.most_common(1)[0][0] if countries else None
     if not cities:
-        return f"{date} {country}" if country else date
+        return f"{day} {country}" if country else day
     top = {city for city, _ in cities.most_common(MAX_TITLE_CITIES)}
     ordered = list(dict.fromkeys(i.city for i in items if i.city in top))
     if len(ordered) == 1:
-        return f"{date} {ordered[0]}"
+        return f"{day} {ordered[0]}"
     places = ", ".join(ordered)
-    return f"{date} {country} - {places}" if country else f"{date} {places}"
+    return f"{day} {country} - {places}" if country else f"{day} {places}"
 
 
 def event_folder(items: list[MediaFile]) -> str:
-    return f"{items[0].taken_at:%Y}/{sanitize(event_title(items))}"
+    return f"{items[0].taken_at:%Y/%Y-%m}/{sanitize(event_title(items))}"
 
 
 class ExistingEvents:

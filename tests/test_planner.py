@@ -68,7 +68,7 @@ def test_plan_places_events_companions_duplicates_and_unsorted(library):
     source, dest = library
     plan, index = make_plan(source, dest)
     rows = by_source(plan)
-    trip = "2024/2024-07-12 Georgia - Tbilisi, Stepantsminda"
+    trip = "2024/2024-07/12 Georgia - Tbilisi, Stepantsminda"
 
     assert rows["trip/IMG_0001.HEIC"].dest == f"{trip}/2024-07-12_10-00-00.heic"
     assert rows["trip/IMG_0001.MOV"].dest == f"{trip}/2024-07-12_10-00-00.mov"
@@ -76,8 +76,8 @@ def test_plan_places_events_companions_duplicates_and_unsorted(library):
     assert rows["trip/IMG_0002.JPG"].dest == f"{trip}/2024-07-13_09-00-00.jpg"
     assert rows["copies/IMG_0001 (1).HEIC"].action == "duplicate"
     assert rows["copies/IMG_0001 (1).HEIC"].note == "same as source/trip/IMG_0001.HEIC"
-    assert rows["whatsapp/IMG-20240801-WA0001.jpg"].dest == "2024/2024-08-01/2024-08-01_00-00-00.jpg"
-    assert rows["whatsapp/IMG-20240801-WA0002.jpg"].dest == "2024/2024-08-01/2024-08-01_00-00-00_1.jpg"
+    assert rows["whatsapp/IMG-20240801-WA0001.jpg"].dest == "2024/2024-08/01/2024-08-01_00-00-00.jpg"
+    assert rows["whatsapp/IMG-20240801-WA0002.jpg"].dest == "2024/2024-08/01/2024-08-01_00-00-00_1.jpg"
     assert rows["misc/random.jpg"].dest == "_unsorted/misc/random.jpg"
     assert rows["misc/old.jpg"].action == "duplicate"
     assert rows["misc/old.jpg"].note == "same as dest/2020/2020-01-01/2020-01-01_12-00-00.jpg"
@@ -97,8 +97,8 @@ def test_screenshots_go_to_month_folders_outside_events(library):
     assert rows["phone/IMG_0500.PNG"].note == "screenshot by metadata"
     assert rows["phone/RPReplay_Final1690000000.MP4"].dest == "screenshots/2024/07/2024-07-12_17-00-00.mp4"
     assert rows["phone/Screenshot (12).png"].dest == "screenshots/_unsorted/phone/Screenshot (12).png"
-    trip = [r.dest for r in plan.rows if r.dest.startswith("2024/2024-07-12")]
-    assert {d.rsplit("/", 1)[0] for d in trip} == {"2024/2024-07-12 Georgia - Tbilisi, Stepantsminda"}
+    trip = [r.dest for r in plan.rows if r.dest.startswith("2024/2024-07/12")]
+    assert {d.rsplit("/", 1)[0] for d in trip} == {"2024/2024-07/12 Georgia - Tbilisi, Stepantsminda"}
 
 
 def test_apply_copies_verifies_and_is_idempotent(library, tmp_path):
@@ -114,7 +114,7 @@ def test_apply_copies_verifies_and_is_idempotent(library, tmp_path):
     copies = [r for r in rows if r.action == "copy"]
     assert (first.copied, first.failed) == (len(copies), 0)
     assert (second.copied, second.already_there, second.failed) == (0, len(copies), 0)
-    trip = dest / "2024/2024-07-12 Georgia - Tbilisi, Stepantsminda"
+    trip = dest / "2024/2024-07/12 Georgia - Tbilisi, Stepantsminda"
     assert (trip / "2024-07-12_10-00-00.heic").read_bytes() == b"trip/IMG_0001.HEIC"
     assert not list(dest.rglob("*.part"))
     assert (source / "trip/IMG_0001.HEIC").exists()
@@ -135,7 +135,7 @@ def test_rerun_with_new_files_reuses_event_folder_and_skips_copied(library, tmp_
         del EXIF["late/phone2.jpg"]
 
     rows = by_source(replan)
-    assert rows["late/phone2.jpg"].dest == "2024/2024-07-12 Georgia - Tbilisi, Stepantsminda/2024-07-12_18-00-00.jpg"
+    assert rows["late/phone2.jpg"].dest == "2024/2024-07/12 Georgia - Tbilisi, Stepantsminda/2024-07-12_18-00-00.jpg"
     assert [r.source for r in replan.rows if r.action == "copy"] == ["late/phone2.jpg"]
 
 

@@ -31,25 +31,31 @@ def test_titles():
     tbilisi = media("a.jpg", datetime(2024, 7, 12, 10), city="Tbilisi", country="Georgia")
     kazbegi = media("b.jpg", datetime(2024, 7, 13, 10), city="Stepantsminda", country="Georgia")
     no_geo = media("c.jpg", datetime(2024, 7, 12, 11))
-    assert event_title([tbilisi, no_geo]) == "2024-07-12 Tbilisi"
-    assert event_title([tbilisi, kazbegi]) == "2024-07-12 Georgia - Tbilisi, Stepantsminda"
-    assert event_title([no_geo]) == "2024-07-12"
-    assert event_folder([tbilisi, kazbegi]) == "2024/2024-07-12 Georgia - Tbilisi, Stepantsminda"
+    assert event_title([tbilisi, no_geo]) == "12 Tbilisi"
+    assert event_title([tbilisi, kazbegi]) == "12 Georgia - Tbilisi, Stepantsminda"
+    assert event_title([no_geo]) == "12"
+    assert event_folder([tbilisi, kazbegi]) == "2024/2024-07/12 Georgia - Tbilisi, Stepantsminda"
+
+
+def test_event_crossing_months_stays_in_its_start_month():
+    items = [media("a.jpg", datetime(2024, 6, 30, 20), city="Tbilisi", country="Georgia"),
+             media("b.jpg", datetime(2024, 7, 1, 9), city="Tbilisi", country="Georgia")]
+    assert event_folder(items) == "2024/2024-06/30 Tbilisi"
 
 
 def test_title_is_filesystem_safe():
     item = media("a.jpg", datetime(2024, 7, 12), city="A/B: C", country="X")
-    assert event_folder([item]) == "2024/2024-07-12 A-B- C"
+    assert event_folder([item]) == "2024/2024-07/12 A-B- C"
 
 
 def test_existing_event_folder_is_reused_within_gap():
     existing = ExistingEvents([
-        (datetime(2024, 7, 12, 10), "2024/2024-07-12 Tbilisi/x.jpg"),
+        (datetime(2024, 7, 12, 10), "2024/2024-07/12 Tbilisi/x.jpg"),
         (datetime(2024, 7, 12, 11), "_unsorted/y.jpg"),
         (datetime(2024, 7, 13, 8), "screenshots/2024/07/a.png"),
         (datetime(2024, 7, 13, 8, 1), "screenshots/2024/07/b.png"),
     ], GAP)
     near = [media("a.jpg", datetime(2024, 7, 13, 9))]
     far = [media("b.jpg", datetime(2024, 7, 20))]
-    assert existing.folder_for(near) == "2024/2024-07-12 Tbilisi"
+    assert existing.folder_for(near) == "2024/2024-07/12 Tbilisi"
     assert existing.folder_for(far) is None

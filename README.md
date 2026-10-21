@@ -6,10 +6,12 @@ Source никогда не изменяется.
 ```
 dest/
   2024/
-    2024-07-12 Georgia - Tbilisi, Stepantsminda/
-      2024-07-12_14-30-12.heic
-      2024-07-12_14-30-12.mov        # Live Photo
-    2024-08-03 Almaty/
+    2024-07/
+      12 Georgia - Tbilisi, Stepantsminda/   # день начала события и места
+        2024-07-12_14-30-12.heic
+        2024-07-12_14-30-12.mov      # Live Photo
+    2024-08/
+      03 Almaty/
   screenshots/
     2024/07/2024-07-12_15-00-00.png  # скриншоты и записи экрана, вне событий
     _unsorted/
