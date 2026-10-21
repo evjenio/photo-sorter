@@ -46,7 +46,7 @@ def apply_plan(source: Path, dest: Path, rows: list[PlanRow], index: DestIndex, 
             src = safe_join(source, row.source)
             target = safe_join(dest, row.dest)
             if target.exists():
-                if file_hash(target) != row.hash:
+                if not index.confirms(row.dest, row.hash, target) and file_hash(target) != row.hash:
                     raise OSError(f"{row.dest} already exists with different content")
                 result.already_there += 1
             elif dry_run:

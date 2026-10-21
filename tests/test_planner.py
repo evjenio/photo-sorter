@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+import photo_sorter.applier as applier
 from photo_sorter.applier import apply_plan
 from photo_sorter.index import DestIndex
 from photo_sorter.planner import PlanOptions, build_plan, read_plan, write_plan
@@ -147,3 +148,21 @@ def test_apply_refuses_to_overwrite_different_content(library, tmp_path):
     index.close()
     assert result.failed == 1
     assert (dest / target.dest).read_bytes() == b"something else"
+
+
+def test_rerun_apply_skips_reading_files_confirmed_by_index(library, monkeypatch):
+    source, dest = library
+    plan, index = make_plan(source, dest)
+    apply_plan(source, dest, plan.rows, index, lambda _: None)
+    edited = next(r for r in plan.rows if r.action == "copy" and r.kind == "photo")
+    (dest / edited.dest).write_bytes(b"edited after copy")
+
+    hashed = []
+    real_hash = applier.file_hash
+    monkeypatch.setattr(applier, "file_hash", lambda p: hashed.append(p.relative_to(dest).as_posix()) or real_hash(p))
+    result = apply_plan(source, dest, plan.rows, index, lambda _: None)
+    index.close()
+
+    sidecars = {r.dest for r in plan.rows if r.action == "copy" and r.kind == "sidecar"}
+    assert set(hashed) - sidecars == {edited.dest}
+    assert result.failed == 1

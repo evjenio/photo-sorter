@@ -99,6 +99,14 @@ class DestIndex:
             (rel, st.st_size, st.st_mtime_ns, file_hash, taken_at),
         )
 
+    def confirms(self, rel: str, file_hash: str, path: Path) -> bool:
+        """True when the index already vouches that path holds file_hash, so it needn't be read."""
+        row = self.db.execute("SELECT size, mtime_ns, hash FROM files WHERE rel = ?", (rel,)).fetchone()
+        if row is None:
+            return False
+        st = path.stat()
+        return row == (st.st_size, st.st_mtime_ns, file_hash)
+
     def commit(self) -> None:
         self.db.commit()
 
