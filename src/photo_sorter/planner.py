@@ -4,7 +4,7 @@ from dataclasses import asdict, dataclass, field, fields
 from datetime import timedelta
 from pathlib import Path, PurePosixPath
 
-from .events import UNSORTED_DIR, ExistingEvents, cluster_events, event_folder
+from .events import SCREENSHOTS_DIR, UNSORTED_DIR, ExistingEvents, cluster_events, event_folder
 from .grouping import attach_companions, companion_suffix
 from .hashing import hash_files
 from .index import DestIndex
@@ -136,6 +136,18 @@ def _place(primary: MediaFile, folder: str, stem: str, primary_suffix: str, name
     return list(zip([primary, *primary.companions], targets))
 
 
+def _date_stem(file: MediaFile) -> str:
+    return f"{file.taken_at:%Y-%m-%d_%H-%M-%S}"
+
+
+def _place_undated(primary: MediaFile, root: str, namer: Namer, rows: list[PlanRow],
+                   note: str) -> list[tuple[MediaFile, str]]:
+    parent, name = posixpath.split(primary.rel)
+    original = PurePosixPath(name)
+    folder = posixpath.join(root, parent) if parent else root
+    return _place(primary, folder, original.stem, original.suffix, namer, rows, note)
+
+
 def _similar_rows(placed: list[tuple[MediaFile, str]], index: DestIndex, options: PlanOptions,
                   log: Log) -> list[SimilarRow]:
     candidates = {file.path: (file, target) for file, target in placed if file.ext in PHASH_EXTS}
@@ -204,18 +216,23 @@ def build_plan(source: Path, dest: Path, index: DestIndex, options: PlanOptions,
     namer = Namer(dest, index.paths())
     existing = ExistingEvents(index.dated_entries(), options.gap)
     placed: list[tuple[MediaFile, str]] = []
-    dated = sorted((p for p in unique if p.taken_at), key=lambda p: (p.taken_at, p.rel))
+    camera = [p for p in unique if not p.screenshot]
+    dated = sorted((p for p in camera if p.taken_at), key=lambda p: (p.taken_at, p.rel))
     for cluster in cluster_events(dated, options.gap, options.max_span):
         folder = existing.folder_for(cluster) or event_folder(cluster)
         for primary in cluster:
-            stem = f"{primary.taken_at:%Y-%m-%d_%H-%M-%S}"
-            placed += _place(primary, folder, stem, normalized_ext(primary.ext), namer, plan.rows)
+            placed += _place(primary, folder, _date_stem(primary), normalized_ext(primary.ext), namer, plan.rows)
 
-    for primary in sorted((p for p in unique if not p.taken_at), key=lambda p: p.rel):
-        parent, name = posixpath.split(primary.rel)
-        folder = posixpath.join(UNSORTED_DIR, parent) if parent else UNSORTED_DIR
-        original = PurePosixPath(name)
-        placed += _place(primary, folder, original.stem, original.suffix, namer, plan.rows, "no capture date")
+    for primary in sorted((p for p in unique if p.screenshot), key=lambda p: p.rel):
+        note = f"screenshot by {primary.screenshot}"
+        if primary.taken_at:
+            folder = f"{SCREENSHOTS_DIR}/{primary.taken_at:%Y/%m}"
+            placed += _place(primary, folder, _date_stem(primary), normalized_ext(primary.ext), namer, plan.rows, note)
+        else:
+            placed += _place_undated(primary, f"{SCREENSHOTS_DIR}/{UNSORTED_DIR}", namer, plan.rows, f"{note}, no capture date")
+
+    for primary in sorted((p for p in camera if not p.taken_at), key=lambda p: p.rel):
+        placed += _place_undated(primary, UNSORTED_DIR, namer, plan.rows, "no capture date")
 
     if options.similar:
         plan.similar = _similar_rows(placed, index, options, log)

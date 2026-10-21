@@ -37,6 +37,7 @@ class MediaFile:
     content_id: str | None = None
     width: int | None = None
     height: int | None = None
+    screenshot: str = ""
     companions: list[MediaFile] = field(default_factory=list)
 
     @property

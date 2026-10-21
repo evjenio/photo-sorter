@@ -18,6 +18,10 @@ EXIF = {
     "whatsapp/IMG-20240801-WA0002.jpg": {},
     "misc/random.jpg": {},
     "misc/old.jpg": {"DateTimeOriginal": "2020:01:01 12:00:00"},
+    "phone/Screenshot_20240712-150000.png": {},
+    "phone/IMG_0500.PNG": {"DateTimeOriginal": "2024:07:12 16:00:00", "UserComment": "Screenshot"},
+    "phone/RPReplay_Final1690000000.MP4": {"CreationDate": "2024:07:12 17:00:00+04:00"},
+    "phone/Screenshot (12).png": {},
 }
 
 
@@ -78,6 +82,22 @@ def test_plan_places_events_companions_duplicates_and_unsorted(library):
     assert rows["misc/old.jpg"].note == "same as dest/2020/2020-01-01/2020-01-01_12-00-00.jpg"
     assert rows["trip/notes.txt"].action == "ignore"
     index.close()
+
+
+def test_screenshots_go_to_month_folders_outside_events(library):
+    source, dest = library
+    plan, index = make_plan(source, dest)
+    index.close()
+    rows = by_source(plan)
+
+    assert rows["phone/Screenshot_20240712-150000.png"].dest == "screenshots/2024/07/2024-07-12_15-00-00.png"
+    assert rows["phone/Screenshot_20240712-150000.png"].note == "screenshot by filename"
+    assert rows["phone/IMG_0500.PNG"].dest == "screenshots/2024/07/2024-07-12_16-00-00.png"
+    assert rows["phone/IMG_0500.PNG"].note == "screenshot by metadata"
+    assert rows["phone/RPReplay_Final1690000000.MP4"].dest == "screenshots/2024/07/2024-07-12_17-00-00.mp4"
+    assert rows["phone/Screenshot (12).png"].dest == "screenshots/_unsorted/phone/Screenshot (12).png"
+    trip = [r.dest for r in plan.rows if r.dest.startswith("2024/2024-07-12")]
+    assert {d.rsplit("/", 1)[0] for d in trip} == {"2024/2024-07-12 Georgia - Tbilisi, Stepantsminda"}
 
 
 def test_apply_copies_verifies_and_is_idempotent(library, tmp_path):

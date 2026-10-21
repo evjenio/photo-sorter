@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from .media import MediaFile
 
 UNSORTED_DIR = "_unsorted"
+SCREENSHOTS_DIR = "screenshots"
 MAX_TITLE_CITIES = 3
 UNSAFE_CHARS = re.compile(r'[/\\:*?"<>|\x00-\x1f]')
 
@@ -61,7 +62,7 @@ class ExistingEvents:
         located = sorted(
             (taken_at, posixpath.dirname(rel))
             for taken_at, rel in entries
-            if posixpath.dirname(rel) and not rel.startswith(f"{UNSORTED_DIR}/")
+            if posixpath.dirname(rel) and not rel.startswith((f"{UNSORTED_DIR}/", f"{SCREENSHOTS_DIR}/"))
         )
         self._times = [t for t, _ in located]
         self._folders = [f for _, f in located]

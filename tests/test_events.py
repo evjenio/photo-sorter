@@ -46,6 +46,8 @@ def test_existing_event_folder_is_reused_within_gap():
     existing = ExistingEvents([
         (datetime(2024, 7, 12, 10), "2024/2024-07-12 Tbilisi/x.jpg"),
         (datetime(2024, 7, 12, 11), "_unsorted/y.jpg"),
+        (datetime(2024, 7, 13, 8), "screenshots/2024/07/a.png"),
+        (datetime(2024, 7, 13, 8, 1), "screenshots/2024/07/b.png"),
     ], GAP)
     near = [media("a.jpg", datetime(2024, 7, 13, 9))]
     far = [media("b.jpg", datetime(2024, 7, 20))]

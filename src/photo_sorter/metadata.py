@@ -6,6 +6,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
 from .media import MediaFile
+from .screenshots import screenshot_reason
 
 MetadataReader = Callable[[list[Path]], dict[str, dict[str, Any]]]
 
@@ -19,6 +20,9 @@ TAGS = (
     "ContentIdentifier",
     "ImageWidth",
     "ImageHeight",
+    "UserComment",
+    "Make",
+    "Model",
 )
 
 EXIF_DATE = re.compile(r"(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2}):(\d{2})")
@@ -99,3 +103,4 @@ def apply_metadata(media: MediaFile, exif: dict[str, Any]) -> None:
     media.content_id = _text(exif.get("ContentIdentifier"))
     media.width = _int(exif.get("ImageWidth"))
     media.height = _int(exif.get("ImageHeight"))
+    media.screenshot = screenshot_reason(media, exif)
