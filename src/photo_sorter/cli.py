@@ -9,7 +9,7 @@ from pathlib import Path
 from .applier import apply_plan
 from .index import DestIndex
 from .metadata import read_exif
-from .planner import PlanOptions, build_plan, latest_plan, plans_dir, read_plan, write_plan
+from .planner import Plan, PlanOptions, PlanRow, build_plan, latest_plan, plans_dir, read_plan, write_plan
 from .progress import log_stderr
 from .similar import MAX_DISTANCE
 
@@ -22,7 +22,7 @@ def _check_roots(source: Path, dest: Path) -> None:
         raise SystemExit("source and destination must not be inside each other")
 
 
-def _scan(args: argparse.Namespace) -> int:
+def _make_plan(args: argparse.Namespace) -> tuple[Plan, Path]:
     if not shutil.which("exiftool"):
         raise SystemExit("exiftool is not installed")
     _check_roots(args.source, args.dest)
@@ -57,6 +57,23 @@ def _scan(args: argparse.Namespace) -> int:
         print(f"  {folder}  ({count})")
     if len(folders) > 20:
         print(f"  ... and {len(folders) - 20} more")
+    return plan, plan_path
+
+
+def _copy(args: argparse.Namespace, rows: list[PlanRow], plan_path: Path, dry_run: bool) -> int:
+    log_stderr(f"Applying plan {plan_path}")
+    index = DestIndex(args.dest)
+    try:
+        result = apply_plan(args.source, args.dest, rows, index, log_stderr, dry_run=dry_run)
+    finally:
+        index.close()
+    verb = "Would copy" if dry_run else "Copied"
+    print(f"{verb}: {result.copied}, already in place: {result.already_there}, failed: {result.failed}")
+    return 1 if result.failed else 0
+
+
+def _scan(args: argparse.Namespace) -> int:
+    _, plan_path = _make_plan(args)
     print(f"\nReview the plan: {plan_path}")
     print(f"Then run: photo-sorter apply {args.source} {args.dest} --latest")
     return 0
@@ -65,32 +82,34 @@ def _scan(args: argparse.Namespace) -> int:
 def _apply(args: argparse.Namespace) -> int:
     _check_roots(args.source, args.dest)
     plan_path = latest_plan(args.dest) if args.latest else args.plan
-    log_stderr(f"Applying plan {plan_path}")
-    rows = read_plan(plan_path)
-    index = DestIndex(args.dest)
-    try:
-        result = apply_plan(args.source, args.dest, rows, index, log_stderr, dry_run=args.dry_run)
-    finally:
-        index.close()
-    verb = "Would copy" if args.dry_run else "Copied"
-    print(f"{verb}: {result.copied}, already in place: {result.already_there}, failed: {result.failed}")
-    return 1 if result.failed else 0
+    return _copy(args, read_plan(plan_path), plan_path, args.dry_run)
+
+
+def _run(args: argparse.Namespace) -> int:
+    plan, plan_path = _make_plan(args)
+    print()
+    return _copy(args, plan.rows, plan_path, dry_run=False)
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="photo-sorter", description="Copy a messy photo library into an ordered one.")
     commands = parser.add_subparsers(dest="command", required=True)
 
-    scan = commands.add_parser("scan", help="build a copy plan; the source is never modified")
-    scan.add_argument("source", type=Path)
-    scan.add_argument("dest", type=Path)
-    scan.add_argument("--gap-hours", type=float, default=24, help="pause that starts a new event (default: 24)")
-    scan.add_argument("--max-event-days", type=float, default=14, help="longest event (default: 14)")
-    scan.add_argument("--similar-distance", type=int, default=6, choices=range(MAX_DISTANCE + 1),
-                      metavar=f"0-{MAX_DISTANCE}", help="phash bit distance for similar images (default: 6)")
-    scan.add_argument("--similar", action="store_true", help="report visually similar images in similar.csv (slow)")
-    scan.add_argument("--workers", type=int, default=os.cpu_count() or 4)
+    scan_options = argparse.ArgumentParser(add_help=False)
+    scan_options.add_argument("source", type=Path)
+    scan_options.add_argument("dest", type=Path)
+    scan_options.add_argument("--gap-hours", type=float, default=24, help="pause that starts a new event (default: 24)")
+    scan_options.add_argument("--max-event-days", type=float, default=14, help="longest event (default: 14)")
+    scan_options.add_argument("--similar-distance", type=int, default=6, choices=range(MAX_DISTANCE + 1),
+                              metavar=f"0-{MAX_DISTANCE}", help="phash bit distance for similar images (default: 6)")
+    scan_options.add_argument("--similar", action="store_true", help="report visually similar images in similar.csv (slow)")
+    scan_options.add_argument("--workers", type=int, default=os.cpu_count() or 4)
+
+    scan = commands.add_parser("scan", parents=[scan_options], help="build a copy plan; the source is never modified")
     scan.set_defaults(handler=_scan)
+
+    run = commands.add_parser("run", parents=[scan_options], help="scan and immediately apply the new plan")
+    run.set_defaults(handler=_run)
 
     apply = commands.add_parser("apply", help="copy files according to a reviewed plan")
     apply.add_argument("source", type=Path)

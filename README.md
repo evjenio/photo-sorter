@@ -55,6 +55,15 @@ docker run --rm -e TZ=Asia/Almaty --user "$(id -u):$(id -g)" \
   photo-sorter apply /source /dest --latest      # или путь к конкретному plan.csv
 ```
 
+Если просматривать план не нужно, `run` делает scan и сразу apply в одном запуске
+(флаги те же, что у `scan`):
+
+```sh
+docker run --rm -e TZ=Asia/Almaty --user "$(id -u):$(id -g)" \
+  -v /path/to/mess:/source:ro -v /path/to/library:/dest \
+  photo-sorter run /source /dest
+```
+
 `TZ` нужен для видео: QuickTime хранит время в UTC, и без часового пояса оно сдвинется.
 
 ## Тесты

@@ -1,6 +1,9 @@
-import pytest
+import shutil
 
-from photo_sorter.cli import build_parser
+import pytest
+from PIL import Image
+
+from photo_sorter.cli import build_parser, main
 from photo_sorter.planner import latest_plan
 
 
@@ -33,3 +36,17 @@ def test_latest_plan_is_the_newest_finished_scan(tmp_path):
 def test_latest_plan_without_scans_fails_clearly(tmp_path):
     with pytest.raises(SystemExit, match="no plans"):
         latest_plan(tmp_path)
+
+
+@pytest.mark.skipif(not shutil.which("exiftool"), reason="exiftool is not installed")
+def test_run_scans_and_applies_in_one_go(tmp_path):
+    source, dest = tmp_path / "source", tmp_path / "dest"
+    source.mkdir()
+    exif = Image.Exif()
+    exif.get_ifd(0x8769)[0x9003] = "2024:07:12 10:00:00"
+    Image.new("RGB", (8, 8)).save(source / "IMG_0001.JPG", exif=exif)
+
+    assert main(["run", str(source), str(dest), "--workers", "2"]) == 0
+
+    assert (dest / "2024/2024-07/12/2024-07-12_10-00-00.jpg").is_file()
+    assert latest_plan(dest).is_file()
